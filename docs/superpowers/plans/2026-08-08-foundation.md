@@ -4,7 +4,7 @@
 
 **Goal:** A working, self-hosted, single-user expense tracker with manual transaction entry, category management, a dashboard (transaction list + category breakdown), and password auth — deployable via Docker Compose. No bank scraping and no AI categorization yet (separate follow-on plans); this plan produces a usable app on its own.
 
-**Architecture:** Next.js (App Router, TypeScript) talking directly to Postgres via `pg` — no ORM. A hand-rolled SQL migration runner (no migration framework). Single shared password gates the app via a signed session cookie (`iron-session`), enforced in `middleware.ts`. One Docker Compose stack: `app` + `db`.
+**Architecture:** Next.js (App Router, TypeScript) talking directly to Postgres via `pg` — no ORM. A hand-rolled SQL migration runner (no migration framework). Single shared password gates the app via a signed session cookie (`iron-session`), enforced in `proxy.ts`. One Docker Compose stack: `app` + `db`.
 
 **Tech Stack:** Next.js 15 (App Router), React 19, TypeScript, Node 22+, `pg`, `bcryptjs`, `iron-session`, Postgres 16, Docker Compose. Tests via Node's built-in `node:test` run with `--experimental-strip-types` (no test framework dependency).
 
@@ -15,7 +15,7 @@
 - No ORM — raw SQL via `pg`, migrations are plain `.sql` files applied by a custom runner.
 - No test framework dependency — `node:test` + `node:assert/strict` only.
 - Auth is a single shared password (bcrypt hash from `APP_PASSWORD_HASH` env var) + `iron-session` cookie — no user table, no OAuth.
-- All routes except `/login` and `POST /api/auth/login` require an authenticated session (enforced in `middleware.ts`).
+- All routes except `/login` and `POST /api/auth/login` require an authenticated session (enforced in `proxy.ts`).
 - `account_id` on `transactions` is a plain nullable integer with no FK yet — the `accounts` table and its FK are added by the bank-scraping plan.
 
 ---
@@ -319,17 +319,17 @@ git commit -m "feat: add migration runner and initial schema"
 
 ---
 
-### Task 3: Auth (session, login, logout, middleware)
+### Task 3: Auth (session, login, logout, proxy)
 
 **Files:**
 - Create: `src/lib/session.ts`
 - Create: `src/app/api/auth/login/route.ts`
 - Create: `src/app/api/auth/logout/route.ts`
-- Create: `middleware.ts`
+- Create: `proxy.ts`
 
 **Interfaces:**
 - Consumes: `APP_PASSWORD_HASH`, `SESSION_SECRET` env vars.
-- Produces: `SessionData` type `{ authenticated?: boolean }` (exported from `src/lib/session.ts`), used by later API routes indirectly via `middleware.ts` (they don't need to check auth themselves — unauthenticated requests never reach them).
+- Produces: `SessionData` type `{ authenticated?: boolean }` (exported from `src/lib/session.ts`), used by later API routes indirectly via `proxy.ts` (they don't need to check auth themselves — unauthenticated requests never reach them).
 
 - [ ] **Step 1: Write the session config/types**
 
@@ -398,17 +398,17 @@ export async function POST(req: NextRequest) {
 }
 ```
 
-- [ ] **Step 4: Write the auth middleware**
+- [ ] **Step 4: Write the auth proxy**
 
 ```ts
-// middleware.ts
+// proxy.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getIronSession } from 'iron-session';
 import { sessionOptions, type SessionData } from '@/lib/session';
 
 const PUBLIC_PATHS = new Set(['/login', '/api/auth/login']);
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   if (PUBLIC_PATHS.has(req.nextUrl.pathname)) {
     return NextResponse.next();
   }
@@ -456,7 +456,7 @@ No automated test for this task — it's thin wiring around `bcryptjs`/`iron-ses
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/lib/session.ts src/app/api/auth middleware.ts
+git add src/lib/session.ts src/app/api/auth proxy.ts
 git commit -m "feat: add password auth with iron-session"
 ```
 

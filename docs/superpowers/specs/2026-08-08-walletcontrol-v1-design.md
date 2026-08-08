@@ -48,7 +48,8 @@ TLS/reverse proxy is the deployer's responsibility, not the app's.
   last_scraped_at
 - `transactions` — id, account_id (nullable for manual entries), date,
   amount, currency, merchant/description, category_id, source
-  (`scraped`|`manual`), dedup_hash, created_at
+  (`scraped`|`manual`), dedup_hash (bank external_id when available, else
+  hash(merchant+date+amount) — see Scraping Flow), created_at
 - `categories` — id, name, parent_id (nullable, for hierarchy)
 - `merchant_memory` — merchant_pattern → category_id
 - `scrape_runs` — id, account_id, started_at, finished_at, status,
@@ -64,21 +65,31 @@ No user/household tables in v1 — a single shared password gates the app.
 2. Decrypt credentials in memory, run `israeli-bank-scrapers` per account.
    Ported from caspion: per-account error isolation (one failing bank
    doesn't block the others), proxy support carried over if needed.
-3. Dedupe incoming transactions via content-hash (merchant+date+amount),
-   upsert as `source=scraped`.
+3. Dedupe incoming transactions before insert. Prefer the bank/scraper's
+   own transaction identifier (`external_id`) as the dedup key when the
+   scraper provides one; fall back to a content-hash (merchant+date+amount)
+   only when no external_id is available. A pure merchant+date+amount hash
+   collides on legitimate same-day duplicates (e.g. two identical coffee
+   purchases), so external_id is preferred whenever exposed.
 4. Record outcome in `scrape_runs` for visibility on the dashboard.
 
 ## Categorization Flow
 
 1. On insert, check `merchant_memory` for a match first — instant,
-   no API call.
+   no API call. Lookup normalizes the raw merchant string before matching
+   (case-insensitive, trimmed, whitespace-collapsed) so near-duplicate
+   merchant strings from different banks/scrapers still hit. Exact
+   normalized-string match for v1; fuzzy matching is a future enhancement.
 2. On miss, call a pluggable AI provider (Claude primary, interface
    modeled on Spent's provider abstraction) with the transaction
    description/amount and existing category list.
-3. User can override any transaction's category in the UI; the override
+3. If the AI provider call fails (timeout, error, rate limit), the
+   transaction is still inserted as `Uncategorized` rather than blocking
+   the scrape — a categorization failure must never block data ingestion.
+4. User can override any transaction's category in the UI; the override
    updates `merchant_memory` so that merchant never needs an AI call
    again.
-4. Manually-entered transactions go through the same pipeline.
+5. Manually-entered transactions go through the same pipeline.
 
 ## Dashboard
 
