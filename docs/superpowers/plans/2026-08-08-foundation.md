@@ -325,7 +325,7 @@ git commit -m "feat: add migration runner and initial schema"
 - Create: `src/lib/session.ts`
 - Create: `src/app/api/auth/login/route.ts`
 - Create: `src/app/api/auth/logout/route.ts`
-- Create: `proxy.ts`
+- Create: `src/proxy.ts` (not repo root — with --src-dir, proxy.ts must live under src/ alongside app/)
 
 **Interfaces:**
 - Consumes: `APP_PASSWORD_HASH`, `SESSION_SECRET` env vars.
@@ -401,7 +401,7 @@ export async function POST(req: NextRequest) {
 - [ ] **Step 4: Write the auth proxy**
 
 ```ts
-// proxy.ts
+// src/proxy.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getIronSession } from 'iron-session';
 import { sessionOptions, type SessionData } from '@/lib/session';
@@ -456,7 +456,7 @@ No automated test for this task — it's thin wiring around `bcryptjs`/`iron-ses
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/lib/session.ts src/app/api/auth proxy.ts
+git add src/lib/session.ts src/app/api/auth src/proxy.ts
 git commit -m "feat: add password auth with iron-session"
 ```
 
