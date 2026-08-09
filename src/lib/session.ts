@@ -5,8 +5,18 @@ export interface SessionData {
   authenticated?: boolean;
 }
 
+function requireSessionSecret(): string {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error(
+      'SESSION_SECRET must be set to a random string of at least 32 characters — see .env.example'
+    );
+  }
+  return secret;
+}
+
 export const sessionOptions: SessionOptions = {
-  password: process.env.SESSION_SECRET as string,
+  password: requireSessionSecret(),
   cookieName: 'walletcontrol_session',
   cookieOptions: {
     secure: process.env.NODE_ENV === 'production',
