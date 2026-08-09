@@ -14,7 +14,11 @@ export async function GET(req: NextRequest) {
     conditions.push(`date_trunc('month', t.date) = $${params.length}::date`);
   }
   if (categoryId) {
-    params.push(Number(categoryId));
+    const numericCategoryId = Number(categoryId);
+    if (!Number.isFinite(numericCategoryId)) {
+      return NextResponse.json({ error: 'category_id must be a valid number' }, { status: 400 });
+    }
+    params.push(numericCategoryId);
     conditions.push(`t.category_id = $${params.length}`);
   }
 

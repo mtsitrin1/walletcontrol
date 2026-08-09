@@ -3,6 +3,11 @@ import { pool } from '@db/client';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const numericId = Number(id);
+  if (!Number.isFinite(numericId)) {
+    return NextResponse.json({ error: 'id must be a valid number' }, { status: 400 });
+  }
+
   const body = await req.json().catch(() => null);
 
   if (body?.category_id !== null && typeof body?.category_id !== 'number') {
@@ -12,7 +17,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { rows } = await pool.query(
     `UPDATE transactions SET category_id = $1 WHERE id = $2
      RETURNING id, date, amount, currency, merchant, category_id, source`,
-    [body.category_id, Number(id)],
+    [body.category_id, numericId],
   );
   if (rows.length === 0) {
     return NextResponse.json({ error: 'not found' }, { status: 404 });

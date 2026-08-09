@@ -1,5 +1,7 @@
 import pg from 'pg';
 
+pg.types.setTypeParser(1082, (val) => val); // DATE oid — return raw 'YYYY-MM-DD' string, avoid local-timezone Date parsing
+
 declare global {
   // eslint-disable-next-line no-var
   var pgPool: pg.Pool | undefined;
